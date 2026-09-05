@@ -1,0 +1,13 @@
+# Ghost Ledger v2 — pinned dependencies
+# Verified working on Python 3.12. Install: pip install -r requirements.txt
+
+numpy==2.3.5
+pandas==2.2.3
+scikit-learn==1.6.1
+xgboost==3.4.1
+streamlit==1.63.0
+altair==6.2.2
+razorpay==2.0.1
+python-dotenv==1.2.3
+pytest==9.0.3
+requests==2.33.0

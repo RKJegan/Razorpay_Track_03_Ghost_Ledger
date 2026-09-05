@@ -1,0 +1,26 @@
+{
+  "n_transactions": 20479,
+  "n_failures": 1815,
+  "amount_at_risk_inr": 2646060.94,
+  "amount_recovered_inr": 1907719.68,
+  "recovery_rate": 0.721,
+  "stopping_rule_events": 440,
+  "recovery_actions": 3816,
+  "audit_records": 7633,
+  "reconciled": true,
+  "outcomes": {
+    "success": 1368,
+    "fail": 0,
+    "stopped": 440,
+    "blocked": 7
+  },
+  "attempt_outcomes": {
+    "blocked": 7,
+    "fail": 2001,
+    "stopped": 440,
+    "success": 1368
+  },
+  "basis": "held-out batch",
+  "split_method": "random grouped by customer: 400 of 2,000 customers drawn at random (seed 42); ALL of a held-out customer's transactions go to the holdout, so no customer appears in both splits. Grouping blocks leakage through customer-level features. Held-out batch: 20,479 transactions (20.0%). [strategy=random_grouped]",
+  "generated_at": "2026-09-05T16:42:03"
+}

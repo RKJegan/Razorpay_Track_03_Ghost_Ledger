@@ -1,0 +1,136 @@
+{
+  "evaluation_set": "held-out split only",
+  "n": 1815,
+  "split_method": "random grouped by customer: 400 of 2,000 customers drawn at random (seed 42); ALL of a held-out customer's transactions go to the holdout, so no customer appears in both splits. Grouping blocks leakage through customer-level features. Held-out batch: 20,479 transactions (20.0%). [strategy=random_grouped]",
+  "per_class": {
+    "card_expired": {
+      "precision": 0.9534883720930233,
+      "recall": 0.9111111111111111,
+      "f1": 0.9318181818181818,
+      "support": 225
+    },
+    "insufficient_funds": {
+      "precision": 0.9752925877763329,
+      "recall": 0.9715025906735751,
+      "f1": 0.9733939000648929,
+      "support": 772
+    },
+    "gateway_timeout": {
+      "precision": 0.9804560260586319,
+      "recall": 1.0,
+      "f1": 0.9901315789473685,
+      "support": 602
+    },
+    "mandate_lapsed": {
+      "precision": 0.9861751152073732,
+      "recall": 0.9907407407407407,
+      "f1": 0.9884526558891455,
+      "support": 216
+    }
+  },
+  "macro": {
+    "precision": 0.9738530252838403,
+    "recall": 0.9683386106313567,
+    "f1": 0.9709490791798971
+  },
+  "weighted": {
+    "precision": 0.9755973080200266,
+    "recall": 0.9757575757575757,
+    "f1": 0.9755835625110522
+  },
+  "accuracy": 0.9757575757575757,
+  "confusion_matrix": {
+    "labels": [
+      "card_expired",
+      "insufficient_funds",
+      "gateway_timeout",
+      "mandate_lapsed"
+    ],
+    "rows": [
+      [
+        205,
+        18,
+        1,
+        1
+      ],
+      [
+        10,
+        750,
+        10,
+        2
+      ],
+      [
+        0,
+        0,
+        602,
+        0
+      ],
+      [
+        0,
+        1,
+        1,
+        214
+      ]
+    ]
+  },
+  "cv_macro_f1": 0.9725924310211722,
+  "cv_macro_f1_std": 0.0018619266719644295,
+  "cv_fold_scores": [
+    0.9706,
+    0.9738,
+    0.974,
+    0.9745,
+    0.9701
+  ],
+  "cv_type": "StratifiedGroupKFold(groups=customer_id)",
+  "cv_folds": 5,
+  "cv_n_configs": 40,
+  "best_params": {
+    "subsample": 0.9,
+    "reg_lambda": 2.0,
+    "n_estimators": 600,
+    "min_child_weight": 1,
+    "max_depth": 3,
+    "learning_rate": 0.03,
+    "gamma": 0.1,
+    "colsample_bytree": 0.7
+  },
+  "training_n": 7275,
+  "mean_confidence": 0.9775671362876892,
+  "feature_count": 40,
+  "attribution": [
+    {
+      "name": "baseline: error_code -> majority cause (no ML)",
+      "accuracy": 0.9289256198347108,
+      "macro_f1": 0.9291208505401458,
+      "n": 1815,
+      "lookup_table": {
+        "ERR_CARD_EXPIRED": "card_expired",
+        "ERR_DO_NOT_HONOR": "insufficient_funds",
+        "ERR_GATEWAY_TIMEOUT": "gateway_timeout",
+        "ERR_INSUFFICIENT_FUNDS": "insufficient_funds",
+        "ERR_INVALID_CARD": "card_expired",
+        "ERR_LIMIT_EXCEEDED": "insufficient_funds",
+        "ERR_MANDATE_EXPIRED": "mandate_lapsed",
+        "ERR_MANDATE_REVOKED": "mandate_lapsed",
+        "ERR_NETWORK": "gateway_timeout",
+        "ERR_UNKNOWN": "gateway_timeout",
+        "ERR_UPI_MANDATE": "mandate_lapsed"
+      },
+      "note": "Pure lookup table built from training-split frequencies. Any score the model achieves above this is genuinely attributable to the model rather than to the error code."
+    },
+    {
+      "name": "full model (all features)",
+      "accuracy": 0.9757575757575757,
+      "macro_f1": 0.9709490791798971,
+      "n": 1815
+    },
+    {
+      "name": "model WITHOUT error_code (28 features)",
+      "accuracy": 0.8716253443526171,
+      "macro_f1": 0.8230667412172132,
+      "n": 1815,
+      "note": "Reuses the full model's tuned hyperparameters."
+    }
+  ]
+}

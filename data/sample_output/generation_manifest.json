@@ -1,0 +1,62 @@
+{
+  "generated_at": "2026-09-05T16:09:55",
+  "generator": "data/synthetic_generator.py",
+  "profile": "train",
+  "dataset_config": {
+    "days": 180,
+    "customers": 2000,
+    "avg_daily_txns": 500,
+    "holdout_days": 14
+  },
+  "storage": "Full ledger -> SQLite (database/seed_db.py). Feature context persisted for FAILED transactions only (failure_contexts.json), since those are the diagnoser's only input rows.",
+  "seed": 42,
+  "merchant_id": "merchant_demo_001",
+  "window": {
+    "start": "2026-03-07 00:00:00",
+    "end": "2026-09-03 00:00:00",
+    "days": 180
+  },
+  "split": {
+    "method": "random grouped by customer: 400 of 2,000 customers drawn at random (seed 42); ALL of a held-out customer's transactions go to the holdout, so no customer appears in both splits. Grouping blocks leakage through customer-level features. Held-out batch: 20,479 transactions (20.0%). [strategy=random_grouped]",
+    "strategy": "random_grouped",
+    "holdout_fraction": 0.2,
+    "holdout_days": 14,
+    "train_days": 166
+  },
+  "counts": {
+    "customers": 2000,
+    "transactions": 102262,
+    "subscriptions": 1030,
+    "failed_total": 9090,
+    "failed_train": 7275,
+    "failed_holdout": 1815,
+    "holdout_transactions": 20479,
+    "holdout_failed": 1815
+  },
+  "rates": {
+    "overall_failure_rate": 0.0889,
+    "one_off_failure_rate": 0.0755,
+    "subscription_failure_rate": 0.303
+  },
+  "ground_truth_cause_distribution": {
+    "card_expired": 1184,
+    "insufficient_funds": 3781,
+    "gateway_timeout": 2905,
+    "mandate_lapsed": 1220
+  },
+  "value_at_risk_inr": 13348370.81,
+  "holdout_value_at_risk_inr": 2646060.94,
+  "cause_buckets": [
+    "card_expired",
+    "insufficient_funds",
+    "gateway_timeout",
+    "mandate_lapsed"
+  ],
+  "assumptions": [
+    "No real merchant data is used anywhere; every record is synthetic.",
+    "Subscription mandate debits fail at 30.30% versus 7.55% for one-off payments. This gap is deliberate and large: recurring mandates in India expire annually (UPI AutoPay / e-NACH) and lapse far more often than one-off card payments decline. It is a stated modelling assumption, not an empirical measurement.",
+    "Root cause is sampled from a context-dependent distribution, not assigned deterministically. Error codes overlap across causes (ERR_DO_NOT_HONOR and ERR_UNKNOWN appear under multiple causes) so the classification task is genuinely probabilistic and the diagnoser is NOT expected to reach 100%.",
+    "Customer behavioural features (median amount, prior success rate, prior failure count) are computed from strictly earlier transactions only. No future information enters any feature."
+  ],
+  "notes": "Ground truth is the root cause injected at generation time. It is stored in separate files per split and is never present in the feature context used for prediction."
+}

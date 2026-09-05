@@ -1,0 +1,29 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# Project artefacts (regenerable from seed)
+data/ghost_ledger.db
+data/test_ghost_ledger.db*
+data/ghost_ledger.db-wal
+data/ghost_ledger.db-shm
+models/*.json
+models/*.pkl
+!data/sample_output/.gitkeep
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/

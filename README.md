@@ -239,3 +239,11 @@ was modified, renamed, or removed.
   `template` backend all 1,815 are generated.
 - **Tuning takes ~3 min.** `python diagnoser/train.py` does the full 40-config
   search; `main.py` uses a reduced 15-config search on first run only.
+
+---
+## Author
+
+**R K Jegan**
+
+B.Tech Artificial Intelligence & Data Science
+---

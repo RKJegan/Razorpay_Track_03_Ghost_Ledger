@@ -231,7 +231,7 @@ Track B added three tables: `dunning_touches`, `gateway_observations`, and
 
 * **The holdout comparison for retry timing uses simulated outcomes.** The dataset has no retry results. See `docs/STRATEGIES.md`.
 * **Timing rules copy the generator's assumptions** (the day-26 cash crunch and peak hours). They are not measured bank behaviour.
-* **Gateway failover is recorded, not enforced.** The payment link does not yet restrict the customer to the healthy method.
+* **Gateway failover is record-only** (decision confirmed by the project owner). When a route is degraded and a healthier one exists, the audit trail records the switch that would happen. The customer's payment link is not changed. Enforcing would change what customers see, so it needs a separate decision.
 * **Dunning sends nothing real.** `send_via_channel` is a mock. Connect a provider in that one function.
 * **Settlement is simulated** in the batch pipeline. Only Track A's verified webhook path settles a real Test Mode payment.
 * **Python 3.12** is the version `requirements.txt` targets (it pins xgboost 3.4.1). The build sandbox used Python 3.11 with xgboost 3.2.0. Run the same checks on 3.12 on your machine.

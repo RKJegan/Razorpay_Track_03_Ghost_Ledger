@@ -192,13 +192,21 @@ simulated-holdout caveat, and the tables are in
 ## Testing
 
 ```bash
-python -m pytest tests/ -q     # 49 tests, ~3s
+python -m pytest tests/ -q     # 292 tests, about 70 s (flag off, the default)
 ```
 
 Tests run against a copy of the database (`data/test_ghost_ledger.db`) so
 fixtures never pollute the demo figures. Covers the 3-attempt stopping rule,
 denial precedence, diagnoser output shape and provenance, explainability,
-end-to-end recovery, empty batch, and API-timeout degradation.
+end-to-end recovery, empty batch, API-timeout degradation, webhooks, approvals,
+merchant isolation, and the Track B strategy engine.
+
+## Documentation
+
+- [docs/PROJECT_GUIDE.md](docs/PROJECT_GUIDE.md): what the project does, how to run every piece, endpoints, configuration, Razorpay Test Mode, security, limitations, troubleshooting.
+- [docs/MODULE_GUIDE.md](docs/MODULE_GUIDE.md): what each source file does.
+- [docs/VSCODE_TEST_GUIDE.md](docs/VSCODE_TEST_GUIDE.md): testing and running in VS Code (the launch configurations are in `.vscode/launch.json`).
+- [docs/STRATEGIES.md](docs/STRATEGIES.md): the Track B strategy engine.
 
 ---
 
@@ -225,7 +233,7 @@ ghost-ledger/
 ├── api/razorpay_client.py      FR-008 live test-mode + simulated backends
 ├── database/                   schema, client, audit trail
 ├── dashboard/                  FR-007 Streamlit UI + components
-├── tests/                      49 tests
+├── tests/                      292 tests
 ├── reports/                    generated metrics, weekly report, checkpoints
 └── FAILURES.md                 dated log of every real blocker
 ```

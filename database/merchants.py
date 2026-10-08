@@ -165,6 +165,24 @@ def verify_api_key(merchant_id: str, api_key: str | None) -> bool:
         return hmac.compare_digest(merchant.api_key_hash, hash_api_key(api_key))
 
 
+def merchant_for_api_key(api_key: str | None) -> str | None:
+    """
+    Return the id of the active merchant that owns ``api_key``, or None.
+
+    The key is 256 random bits, so a SHA-256 lookup needs no salt, and the
+    stored hash is the only thing compared against. Unknown and inactive keys
+    both return None, so the caller cannot tell them apart.
+    """
+    if not api_key:
+        return None
+    digest = hash_api_key(api_key)
+    with session_scope() as session:
+        row = session.scalars(
+            select(Merchant).where(Merchant.api_key_hash == digest, Merchant.is_active == 1)
+        ).first()
+        return row.id if row is not None else None
+
+
 def list_merchants() -> list[dict[str, object]]:
     """Return every merchant (never the key hash)."""
     with session_scope() as session:

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ghost Ledger · Merchant</title>
+  <link rel="stylesheet" href="/merchant/app.css">
+</head>
+<body>
+  <header>
+    <h1>Ghost Ledger <span class="sub">merchant view</span></h1>
+    <div id="who" class="who"></div>
+    <button id="signout" class="ghost" hidden>Sign out</button>
+  </header>
+
+  <main>
+    <section id="login" class="card" hidden>
+      <h2>Connect with your API key</h2>
+      <p class="muted">Paste the API key issued to your store. It is kept for this browser tab only and cleared when you sign out.</p>
+      <form id="login-form">
+        <label for="key">API key</label>
+        <input id="key" type="password" autocomplete="off" spellcheck="false" required>
+        <button type="submit">Connect</button>
+      </form>
+      <p id="login-error" class="error" role="alert"></p>
+    </section>
+
+    <section id="dashboard" hidden>
+      <p id="status" class="muted" role="status">Connecting…</p>
+
+      <div class="cards">
+        <div class="metric"><span>Active</span><strong id="m-active">–</strong></div>
+        <div class="metric"><span>Failures in progress</span><strong id="m-failures">–</strong></div>
+        <div class="metric"><span>Awaiting approval</span><strong id="m-approvals">–</strong></div>
+        <div class="metric"><span>Settled today</span><strong id="m-settled">–</strong></div>
+        <div class="metric"><span>Recovered today</span><strong id="m-recovered">–</strong></div>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <h2>Active recoveries</h2>
+          <table><thead><tr>
+            <th>Recovery</th><th>Amount</th><th>Cause</th><th>Latest step</th><th>Updated</th>
+          </tr></thead><tbody id="t-active"></tbody></table>
+        </section>
+
+        <section class="card">
+          <h2>Failures in progress</h2>
+          <table><thead><tr>
+            <th>Recovery</th><th>Amount</th><th>Failure</th><th>When</th>
+          </tr></thead><tbody id="t-failures"></tbody></table>
+        </section>
+
+        <section class="card">
+          <h2>Awaiting approval</h2>
+          <p class="muted">Recoveries above the auto-approve limit wait for a Ghost Ledger operator.</p>
+          <table><thead><tr>
+            <th>Recovery</th><th>Amount</th><th>Cause</th><th>Requested</th>
+          </tr></thead><tbody id="t-approvals"></tbody></table>
+        </section>
+
+        <section class="card wide">
+          <div class="row">
+            <h2>All recoveries</h2>
+            <label for="filter">Status</label>
+            <select id="filter">
+              <option value="">All</option>
+              <option value="pending">Pending</option>
+              <option value="settled">Settled</option>
+              <option value="escalated">Escalated</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+          <table><thead><tr>
+            <th>Recovery</th><th>Amount</th><th>Cause</th><th>Status</th><th>Updated</th>
+          </tr></thead><tbody id="t-all"></tbody></table>
+          <p id="all-total" class="muted"></p>
+        </section>
+
+        <section class="card wide" id="detail" hidden>
+          <h2 id="detail-title">Recovery</h2>
+          <ol id="timeline" class="timeline"></ol>
+        </section>
+      </div>
+      <p class="muted small">Refreshes every 2 seconds. Amounts in INR.</p>
+    </section>
+  </main>
+
+  <script src="/merchant/app.js"></script>
+</body>
+</html>

@@ -10,6 +10,8 @@ Endpoints are added per component. Currently:
 * ``POST /webhooks/razorpay``  — signed Razorpay webhook (A1)
 * ``/api/approvals``           — human approval queue (A3, operator key)
 * ``/api/operator/summary``    — live state for the Streamlit dashboard (A5)
+* ``/api/merchant/*``          — merchant-scoped API, bearer key (A6)
+* ``/merchant``                — merchant HTML/JS dashboard (A6)
 * ``GET  /health``             — liveness and feature-flag status
 
 The database schema is migrated on startup (idempotent). Background jobs
@@ -27,6 +29,8 @@ from fastapi import FastAPI
 
 import config
 from api.approvals_api import router as approvals_router
+from api.merchant_api import page_router as merchant_page_router
+from api.merchant_api import router as merchant_router
 from api.operator_api import router as operator_router
 from api.scheduler import start_scheduler, stop_scheduler
 from api.webhooks import router as webhook_router
@@ -62,6 +66,8 @@ app = FastAPI(
 app.include_router(webhook_router)
 app.include_router(approvals_router)
 app.include_router(operator_router)
+app.include_router(merchant_router)
+app.include_router(merchant_page_router)
 
 
 @app.get("/health")

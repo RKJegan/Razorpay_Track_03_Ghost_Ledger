@@ -179,6 +179,16 @@ All in `.env` (see `.env.example`); every value has a safe offline default.
 
 ---
 
+## Track B: multi-strategy engine (optional)
+
+Set `ENABLE_ADVANCED_STRATEGIES=1` to turn on cause-specific strategies: YAML
+playbooks, deterministic routing that runs only after the policy allows an
+attempt, rule-based retry timing, gateway health and failover, dunning
+sequences (mocked sends), A/B tests, and alternate payment-method suggestions.
+The default is `0`, which is exactly the v2 behaviour. Full details, the
+simulated-holdout caveat, and the tables are in
+[docs/STRATEGIES.md](docs/STRATEGIES.md).
+
 ## Testing
 
 ```bash

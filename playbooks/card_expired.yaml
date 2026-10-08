@@ -1,0 +1,23 @@
+# Playbook: card_expired (B1)
+# The customer must enter a new card, so a payment link is the right action.
+# Timing is immediate. After two card failures, suggest UPI or netbanking.
+cause: card_expired
+version: 1
+description: "Expired card: payment link now, reminders, method suggestion after repeated card failures."
+route: create_link
+retry:
+  timing_rule: none
+failover:
+  enabled: false
+method_suggestion:
+  after_card_failures: 2
+  candidates: [upi, netbanking]
+dunning:
+  touches:
+    - {offset_minutes: 0, channel: email, template: card_first}
+    - {offset_minutes: 1440, channel: sms, template: card_second}
+    - {offset_minutes: 4320, channel: email, template: card_final}
+templates:
+  card_first: "Hello, your card payment of INR {amount_inr} for {txn_id} was declined because the card has expired. {next_step}"
+  card_second: "Reminder: your payment of INR {amount_inr} for {txn_id} is still pending. {next_step}"
+  card_final: "Final notice: payment of INR {amount_inr} for {txn_id} is still pending. {next_step}"

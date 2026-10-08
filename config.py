@@ -156,6 +156,24 @@ JOB_BACKOFF_MAX_SECONDS: int = _env_int("JOB_BACKOFF_MAX_SECONDS", 1800)
 # Hours after which an unpaid payment link is treated as expired.
 PAYMENT_LINK_EXPIRY_HOURS: int = _env_int("PAYMENT_LINK_EXPIRY_HOURS", 24)
 
+# Track B settings (only read when ENABLE_ADVANCED_STRATEGIES=1).
+# Playbooks: one YAML file per cause, validated on load, hot-reloaded on change.
+PLAYBOOK_DIR: Path = PROJECT_ROOT / "playbooks"
+# Dunning touches are sent by a job that runs every 15 minutes (B5).
+JOB_DUNNING_SECONDS: int = _env_int("JOB_DUNNING_SECONDS", 900)
+# Gateway health (B4): rolling window, minimum sample before a verdict, and the
+# success-rate floor below which a route counts as degraded.
+GATEWAY_HEALTH_WINDOW_MINUTES: int = _env_int("GATEWAY_HEALTH_WINDOW_MINUTES", 60)
+GATEWAY_HEALTH_MIN_SAMPLE: int = _env_int("GATEWAY_HEALTH_MIN_SAMPLE", 20)
+GATEWAY_DEGRADED_BELOW: float = _env_float("GATEWAY_DEGRADED_BELOW", 0.80)
+# A/B tests (B6): significance level and minimum sample per arm before a verdict.
+AB_ALPHA: float = _env_float("AB_ALPHA", 0.05)
+AB_MIN_SAMPLE_PER_ARM: int = _env_int("AB_MIN_SAMPLE_PER_ARM", 100)
+# When on (and ENABLE_ADVANCED_STRATEGIES is on), each recovery is assigned to
+# control (immediate retry, v2 timing) or treatment (playbook timing rules).
+# Off by default: the experiment changes customer timing, so it is opt-in.
+AB_RETRY_TIMING_EXPERIMENT: bool = _env_bool("AB_RETRY_TIMING_EXPERIMENT", False)
+
 
 # --------------------------------------------------------------------------
 # Dataset shape (FR-001)

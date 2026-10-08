@@ -19,7 +19,7 @@ module.
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, Float, String, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Float, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 RECOVERY_STATUSES: tuple[str, ...] = ("pending", "settled", "failed", "escalated")
@@ -164,3 +164,58 @@ class BatchRun(Base):
     started_at: Mapped[str] = mapped_column(String, nullable=False)
     updated_at: Mapped[str] = mapped_column(String, nullable=False)
     finished_at: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class DunningTouch(Base):
+    """One scheduled customer reminder in a dunning sequence (B5). Idempotent per (recovery, touch)."""
+
+    __tablename__ = "dunning_touches"
+    __table_args__ = (
+        Index("ix_dunning_status_due", "status", "due_at"),
+        Index("ix_dunning_recovery", "recovery_id"),
+        UniqueConstraint("recovery_id", "touch_no", name="uq_dunning_touch"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    recovery_id: Mapped[str] = mapped_column(
+        String, ForeignKey("recovery_cases.id"), nullable=False
+    )
+    touch_no: Mapped[int] = mapped_column(Integer, nullable=False)
+    channel: Mapped[str] = mapped_column(String, nullable=False)
+    template: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    due_at: Mapped[str] = mapped_column(String, nullable=False)
+    # scheduled | sent | failed | cancelled
+    status: Mapped[str] = mapped_column(String, nullable=False, default="scheduled")
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    sent_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    provider_ref: Mapped[str | None] = mapped_column(String, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class GatewayObservation(Base):
+    """One payment outcome per payment method, used for gateway health (B4)."""
+
+    __tablename__ = "gateway_observations"
+    __table_args__ = (Index("ix_gateway_method_time", "method", "observed_at"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    method: Mapped[str] = mapped_column(String, nullable=False)
+    success: Mapped[int] = mapped_column(Integer, nullable=False)  # 1 captured, 0 failed
+    recovery_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    observed_at: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class AbAssignment(Base):
+    """Stable A/B assignment of one unit to one variant, with its first outcome (B6)."""
+
+    __tablename__ = "ab_assignments"
+    __table_args__ = (Index("ix_ab_experiment_variant", "experiment", "variant"),)
+
+    experiment: Mapped[str] = mapped_column(String, primary_key=True)
+    unit_id: Mapped[str] = mapped_column(String, primary_key=True)
+    variant: Mapped[str] = mapped_column(String, nullable=False)
+    assigned_at: Mapped[str] = mapped_column(String, nullable=False)
+    outcome: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 1 converted, 0 not
+    outcome_at: Mapped[str | None] = mapped_column(String, nullable=True)
+

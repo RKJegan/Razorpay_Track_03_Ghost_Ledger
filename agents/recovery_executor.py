@@ -18,6 +18,8 @@ Outcomes
 ``denied``             another policy rule blocked the attempt (for example R2)
 ``link_failed``        the Razorpay call failed; nothing was recorded as created
 ``not_pending``        the recovery is already settled, failed or escalated
+``retry_scheduled``    (strategies on) the timing rule deferred the attempt; no link yet
+``dunning_only``       (strategies on) the playbook sends reminders, no payment link
 
 Trust boundary: the LLM is not involved. The decision is deterministic Python,
 and the Razorpay response is a fact to record, not a settlement to assume. A
@@ -38,6 +40,7 @@ from api.razorpay_client import (
     SimulatedRazorpayClient,
     get_razorpay_client,
 )
+import config
 from config import RAZORPAY_LIVE_TEST_MODE
 from database import audit_trail, approvals, recovery_store
 
@@ -75,48 +78,34 @@ def _attempt_count(recovery_id: str) -> int:
     return recovery_store.count_events(recovery_id, LINK_STAGES)
 
 
-def submit_recovery(
+@dataclass(frozen=True)
+class Ruling:
+    """The policy ruling for one recovery. Made and logged BEFORE anything runs (R4)."""
+
+    recovery_id: str
+    case: dict[str, Any]
+    attempt: int
+    decision: PolicyDecision
+    approved: bool
+    approval_id: str | None
+
+
+def rule_on_recovery(
     recovery_id: str,
     *,
     approved: bool = False,
     approval_id: str | None = None,
-    customer: dict[str, str] | None = None,
-    client: SimulatedRazorpayClient | LiveRazorpayClient | None = None,
     engine: PolicyEngine | None = None,
-) -> SubmitResult:
+) -> "Ruling | SubmitResult":
     """
-    Run the policy-gated step for one recovery: create a payment link, or ask a human.
+    Rule on the next attempt for one recovery. Performs NO side effects except the R4 audit entry.
 
-    Parameters
-    ----------
-    recovery_id : str
-        The recovery case to act on.
-    approved : bool, optional
-        True only when a human has approved this exact recovery (set by
-        :mod:`agents.approval_queue`). Lifts R1 only, never R2 or R3.
-    approval_id : str, optional
-        The approval that granted ``approved``; recorded on the link event.
-    customer : dict[str, str], optional
-        ``{name, email, contact}`` for the link. A placeholder is used if omitted.
-    client : optional
-        Injected Razorpay client. Defaults to the configured one.
-    engine : PolicyEngine, optional
-        Injected policy engine. Defaults to one built from config.
-
-    Returns
-    -------
-    SubmitResult
-        The outcome, with the attempt number and any approval or link id.
-
-    Raises
-    ------
-    recovery_store.UnknownRecoveryError
-        If the recovery does not exist.
+    Returns a :class:`Ruling` to be executed with :func:`execute_ruling`, or a
+    :class:`SubmitResult` (``not_pending``) when there is nothing to rule on.
     """
     case = recovery_store.get_recovery_status(recovery_id)
     if case is None:
         raise recovery_store.UnknownRecoveryError(f"no recovery {recovery_id!r}")
-    client = client or get_razorpay_client()
     engine = engine or PolicyEngine()
 
     if case["status"] != "pending":
@@ -154,6 +143,21 @@ def submit_recovery(
         },
         entity_id=recovery_id,
     )
+    return Ruling(recovery_id, case, attempt, decision, approved, approval_id)
+
+
+def execute_ruling(
+    ruling: Ruling,
+    *,
+    client: SimulatedRazorpayClient | LiveRazorpayClient | None = None,
+    customer: dict[str, str] | None = None,
+) -> SubmitResult:
+    """Act on a ruling made by :func:`rule_on_recovery`. Never re-rules."""
+    recovery_id = ruling.recovery_id
+    case = ruling.case
+    decision = ruling.decision
+    attempt = ruling.attempt
+    client = client or get_razorpay_client()
 
     if decision.stopping_rule_triggered:
         recovery_store.append_event(
@@ -162,7 +166,7 @@ def submit_recovery(
         )
         return SubmitResult(recovery_id, "stopped", decision.reason, attempt)
 
-    if decision.requires_approval and not approved:
+    if decision.requires_approval and not ruling.approved:
         return _request_approval(recovery_id, case, attempt, decision)
 
     if not decision.allowed:
@@ -175,10 +179,56 @@ def submit_recovery(
 
     recovery_store.append_event(
         recovery_id, "policy_check_passed",
-        {"rule": decision.rule, "reason_code": decision.reason_code, "approval_id": approval_id},
+        {"rule": decision.rule, "reason_code": decision.reason_code, "approval_id": ruling.approval_id},
         created_by="policy_engine",
     )
-    return _create_link(recovery_id, case, attempt, client, customer, approval_id)
+    return _create_link(recovery_id, case, attempt, client, customer, ruling.approval_id)
+
+
+def submit_direct(
+    recovery_id: str,
+    *,
+    approved: bool = False,
+    approval_id: str | None = None,
+    customer: dict[str, str] | None = None,
+    client: SimulatedRazorpayClient | LiveRazorpayClient | None = None,
+    engine: PolicyEngine | None = None,
+) -> SubmitResult:
+    """The v2-compatible path: rule, then execute. No strategy layer involved."""
+    ruling = rule_on_recovery(recovery_id, approved=approved, approval_id=approval_id, engine=engine)
+    if isinstance(ruling, SubmitResult):
+        return ruling
+    return execute_ruling(ruling, client=client, customer=customer)
+
+
+def submit_recovery(
+    recovery_id: str,
+    *,
+    approved: bool = False,
+    approval_id: str | None = None,
+    customer: dict[str, str] | None = None,
+    client: SimulatedRazorpayClient | LiveRazorpayClient | None = None,
+    engine: PolicyEngine | None = None,
+) -> SubmitResult:
+    """
+    Single entry point for v3 recovery actions (approvals, jobs, demo).
+
+    With ``ENABLE_ADVANCED_STRATEGIES`` off (the default) this is exactly
+    :func:`submit_direct`. With it on, the strategy layer (B1-B8) decides
+    whether to create a link now, schedule a retry, or send dunning only. The
+    policy ruling still comes first in both cases.
+    """
+    if config.ENABLE_ADVANCED_STRATEGIES:
+        from strategies.runner import handle_failure  # local import: avoids a cycle
+
+        return handle_failure(
+            recovery_id, approved=approved, approval_id=approval_id,
+            customer=customer, client=client, engine=engine,
+        )
+    return submit_direct(
+        recovery_id, approved=approved, approval_id=approval_id,
+        customer=customer, client=client, engine=engine,
+    )
 
 
 def _request_approval(

@@ -67,6 +67,27 @@ def _header(title: str) -> None:
     print("=" * W)
 
 
+def _strategies_enabled() -> bool:
+    """Read the Track B switch at call time (so tests and operators can change it)."""
+    import config as _config
+
+    return bool(_config.ENABLE_ADVANCED_STRATEGIES)
+
+
+def step_strategies() -> None:
+    """Track B startup check: validate the playbooks and print one line per cause. No writes."""
+    from strategies.playbooks import PlaybookError
+    from strategies.runner import dry_run_summary
+
+    _header("TRACK B — STRATEGY ENGINE (dry run, no database writes)")
+    try:
+        for line in dry_run_summary():
+            print(f"  {line}")
+    except PlaybookError as exc:
+        print(f"  playbooks INVALID: {exc}")
+        print("  any recovery whose playbook is unusable falls back to the v2 path")
+
+
 def step_generate(regen: bool, profile: str) -> None:
     """
     Ensure a dataset exists, regenerating from the seed when asked.
@@ -458,6 +479,9 @@ def main(argv: list[str] | None = None) -> int:
     _header("GHOST LEDGER v2 — FULL PIPELINE")
     print(f"  started    : {datetime.now().isoformat(timespec='seconds')}")
     print(f"  profile    : {args.profile}")
+
+    if _strategies_enabled():
+        step_strategies()
 
     step_generate(args.regen, args.profile)
     db_client.init_db()

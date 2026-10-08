@@ -379,7 +379,11 @@ def retry_recovery(recovery_id: str, client: SimulatedRazorpayClient | LiveRazor
 
 
 def retry_due_recoveries(client: SimulatedRazorpayClient | LiveRazorpayClient | None = None) -> dict[str, int]:
-    """Run :func:`retry_recovery` over every open recovery that has a link."""
+    """Run the retry pass. With strategies on, that includes scheduled retries (B3)."""
+    if config.ENABLE_ADVANCED_STRATEGIES:
+        from strategies.runner import retry_pass  # local import: keeps v2 imports unchanged
+
+        return retry_pass(client=_client(client))
     counts: dict[str, int] = {}
     for rid in _open_link_recoveries():
         outcome = retry_recovery(rid, client=client)

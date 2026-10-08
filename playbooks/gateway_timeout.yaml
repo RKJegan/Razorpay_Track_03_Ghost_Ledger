@@ -1,0 +1,22 @@
+# Playbook: gateway_timeout (B1 + B3 + B4)
+# Retry timing follows peak_avoidance (generator peak windows 11-14 and 19-22).
+# If the card route is verified degraded, fail over to UPI or netbanking when healthy.
+cause: gateway_timeout
+version: 1
+description: "Gateway timeout: peak-aware retry timing, health-based failover, reminders."
+route: create_link
+retry:
+  timing_rule: peak_avoidance
+failover:
+  enabled: true
+  candidates: [upi, netbanking]
+method_suggestion:
+  after_card_failures: 2
+  candidates: [upi, netbanking]
+dunning:
+  touches:
+    - {offset_minutes: 30, channel: email, template: timeout_first}
+    - {offset_minutes: 1440, channel: sms, template: timeout_second}
+templates:
+  timeout_first: "Hello, your payment of INR {amount_inr} for {txn_id} timed out at the bank. {next_step}"
+  timeout_second: "Reminder: your payment of INR {amount_inr} for {txn_id} is still pending. {next_step}"

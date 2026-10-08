@@ -103,6 +103,8 @@ class ParsedWebhook:
     recovery_id: str | None
     txn_id: str | None
     merchant_id: str | None
+    # Payment method (card, upi, netbanking, ...). Used by Track B gateway health.
+    payment_method: str | None = None
 
 
 def _as_dict(value: Any) -> dict[str, Any]:
@@ -147,6 +149,7 @@ def parse_razorpay_event(payload: dict[str, Any]) -> ParsedWebhook:
         recovery_id=str(notes["recovery_id"]) if notes.get("recovery_id") else None,
         txn_id=str(notes.get("txn_id") or notes.get("transaction_id") or "") or None,
         merchant_id=str(notes["merchant_id"]) if notes.get("merchant_id") else None,
+        payment_method=str(payment["method"]) if payment.get("method") else None,
     )
 
 
@@ -306,6 +309,7 @@ def process_webhook_event(event_id: str) -> str:
             "amount_paise": parsed.amount_paise,
             "payment_status": parsed.payment_status,
             "txn_id": parsed.txn_id,
+            "payment_method": parsed.payment_method,
         }
         if stage == "payment_captured" and case.get("status") == "settled":
             if recovery_store.has_provisional_settlement(recovery_id):
@@ -336,6 +340,11 @@ def process_webhook_event(event_id: str) -> str:
             )
             return "anomaly"
         recovery_store.append_event(recovery_id, stage, detail=detail, created_by="razorpay_webhook")
+        if config.ENABLE_ADVANCED_STRATEGIES:
+            # Track B hook: gateway health and dunning cancellation. Never raises.
+            from strategies.runner import observe_payment
+
+            observe_payment(recovery_id, stage, parsed.payment_method)
         _mark(event_id, "processed")
         audit_trail.log(
             component="webhook",

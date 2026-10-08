@@ -56,6 +56,12 @@ STAGES: tuple[str, ...] = (
     # A failed API call is an operational event, not the end of the recovery,
     # so it deliberately does NOT move the case to a terminal status.
     "link_call_failed",
+    # B1-B8 strategy outcomes (only written when ENABLE_ADVANCED_STRATEGIES is on)
+    "retry_scheduled",
+    "method_suggested",
+    "gateway_failover",
+    "dunning_scheduled",
+    "dunning_cancelled",
 )
 
 #: Case status each stage moves the recovery into. Stages not listed keep the

@@ -1,0 +1,50 @@
+{
+  "basis": "SIMULATED outcomes (see scripts/retry_timing_holdout.py); holdout has no retry labels",
+  "outcome_model": {
+    "insufficient_funds": "p=0.55 if day<26 else 0.15",
+    "gateway_timeout": "p=0.70 off-peak, 0.40 in peak windows 11-14 and 19-22"
+  },
+  "rules": {
+    "insufficient_funds": "cycle_aware_funds",
+    "gateway_timeout": "peak_avoidance"
+  },
+  "sample_failures": 1815,
+  "timed_failures": 1374,
+  "generated_at": "2026-10-08 17:39:32",
+  "causes": {
+    "card_expired": {
+      "failures": 225,
+      "note": "no automatic retry under either policy; not compared"
+    },
+    "gateway_timeout": {
+      "failures": 602,
+      "immediate_success_rate": 0.4834,
+      "rule_based_success_rate": 0.6877,
+      "uplift_points": 20.43,
+      "rule_based_deferred": 414,
+      "discordant_rule_only": 123,
+      "discordant_immediate_only": 0,
+      "mcnemar_chi2": 123.0,
+      "p_value": 1.39449e-28
+    },
+    "insufficient_funds": {
+      "failures": 772,
+      "immediate_success_rate": 0.4754,
+      "rule_based_success_rate": 0.5764,
+      "uplift_points": 10.1,
+      "rule_based_deferred": 183,
+      "discordant_rule_only": 78,
+      "discordant_immediate_only": 0,
+      "mcnemar_chi2": 78.0,
+      "p_value": 1.03041e-18
+    },
+    "mandate_lapsed": {
+      "failures": 216,
+      "note": "no automatic retry under either policy; not compared"
+    }
+  },
+  "summary": {
+    "compared_causes": 2,
+    "note": "uplift is a property of the simulated model; compare live with the A/B experiment"
+  }
+}

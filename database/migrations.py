@@ -103,6 +103,18 @@ MIGRATIONS: list[tuple[int, str, list[Step]]] = [
             lambda conn: _add_column_if_missing(conn, "recovery_cases", "customer_id", "TEXT"),
         ],
     ),
+    (
+        4,
+        "v3_strategies",
+        [
+            # Track B tables (dunning_touches, gateway_observations, ab_assignments)
+            # are created by Base.metadata.create_all in run_migrations(). The
+            # statements below make the indexes explicit for existing databases.
+            # Nothing here touches v2 tables or existing rows.
+            "CREATE INDEX IF NOT EXISTS ix_dunning_status_due ON dunning_touches (status, due_at)",
+            "CREATE INDEX IF NOT EXISTS ix_gateway_method_time ON gateway_observations (method, observed_at)",
+        ],
+    ),
 ]
 
 LATEST_VERSION: int = MIGRATIONS[-1][0]

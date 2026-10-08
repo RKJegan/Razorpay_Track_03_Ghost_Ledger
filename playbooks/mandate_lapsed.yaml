@@ -1,0 +1,18 @@
+# Playbook: mandate_lapsed (B1)
+# A payment link cannot revive a lapsed mandate, so no link is created.
+# The customer is asked to renew the mandate through dunning.
+cause: mandate_lapsed
+version: 1
+description: "Lapsed mandate: no payment link; mandate renewal reminders only."
+route: dunning_only
+retry:
+  timing_rule: none
+failover:
+  enabled: false
+dunning:
+  touches:
+    - {offset_minutes: 0, channel: email, template: mandate_first}
+    - {offset_minutes: 2880, channel: email, template: mandate_final}
+templates:
+  mandate_first: "Hello, your recurring payment of INR {amount_inr} for {txn_id} could not be taken because the mandate has lapsed. {next_step}"
+  mandate_final: "Final notice: please renew the mandate for {txn_id}. Amount due INR {amount_inr}. {next_step}"

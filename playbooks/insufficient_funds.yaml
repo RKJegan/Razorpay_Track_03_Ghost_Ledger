@@ -1,0 +1,23 @@
+# Playbook: insufficient_funds (B1 + B3)
+# Retry timing follows cycle_aware_funds: a retry from day 26 of the month is
+# deferred to the 2nd of the next month, when the generator's cash crunch has passed.
+cause: insufficient_funds
+version: 1
+description: "Insufficient funds: cycle-aware retry timing, payment link, reminders."
+route: create_link
+retry:
+  timing_rule: cycle_aware_funds
+failover:
+  enabled: false
+method_suggestion:
+  after_card_failures: 2
+  candidates: [upi, netbanking]
+dunning:
+  touches:
+    - {offset_minutes: 0, channel: sms, template: funds_first}
+    - {offset_minutes: 1440, channel: email, template: funds_second}
+    - {offset_minutes: 4320, channel: sms, template: funds_final}
+templates:
+  funds_first: "Hello, your payment of INR {amount_inr} for {txn_id} did not go through. {next_step}"
+  funds_second: "Reminder: your payment of INR {amount_inr} for {txn_id} is still pending. {next_step}"
+  funds_final: "Final notice: payment of INR {amount_inr} for {txn_id} is still pending. {next_step}"

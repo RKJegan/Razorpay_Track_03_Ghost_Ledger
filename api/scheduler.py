@@ -27,13 +27,19 @@ _scheduler: BackgroundScheduler | None = None
 
 
 def job_table() -> list[tuple[str, Callable[[], object], int]]:
-    """Return (job name, function, interval seconds) for every A4 job."""
-    return [
+    """Return (job name, function, interval seconds) for every A4 job (+ dunning when B is on)."""
+    jobs_list: list[tuple[str, Callable[[], object], int]] = [
         ("settlement_poll", jobs.poll_open_links, config.JOB_SETTLEMENT_POLL_SECONDS),
         ("reconcile", jobs.reconcile_all, config.JOB_RECONCILE_SECONDS),
         ("retry", jobs.retry_due_recoveries, config.JOB_RETRY_SECONDS),
         ("expired_link_cleanup", jobs.clean_expired_links, config.JOB_CLEAN_LINKS_SECONDS),
     ]
+    if config.ENABLE_ADVANCED_STRATEGIES:
+        # Track B (B5): send due dunning touches. Only registered when the switch is on.
+        from strategies import dunning
+
+        jobs_list.append(("dunning", dunning.run_due, config.JOB_DUNNING_SECONDS))
+    return jobs_list
 
 
 def run_job(name: str) -> None:

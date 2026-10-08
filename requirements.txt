@@ -11,3 +11,11 @@ razorpay==2.0.1
 python-dotenv==1.2.3
 pytest==9.0.3
 requests==2.33.0
+
+# Ghost Ledger v3 — real-time platform (webhooks, scheduler, merchant API)
+fastapi==0.143.0
+uvicorn==0.54.0
+SQLAlchemy==2.1.4
+APScheduler==3.11.3
+PyYAML==6.0.3
+httpx==0.28.1

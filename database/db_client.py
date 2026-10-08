@@ -87,9 +87,33 @@ def init_db(verbose: bool = False) -> Path:
     sql = SCHEMA_PATH.read_text(encoding="utf-8")
     with transaction() as conn:
         conn.executescript(sql)
+    # v3 tables, triggers and the migration ledger, in the SAME file.
+    # Imported here to keep this module importable without SQLAlchemy.
+    from database.migrations import run_migrations
+
+    run_migrations()
     if verbose and LOG_LEVEL.upper() in {"DEBUG", "INFO"}:
         print(f"[db] schema ready at {DB_PATH.relative_to(PROJECT_ROOT)}")
     return DB_PATH
+
+
+def init_db_v2(verbose: bool = False) -> Path:
+    """
+    Alias for :func:`init_db`, kept because the v3 run instructions call it.
+
+    There is one database for v2 and v3, so this is the same function.
+
+    Parameters
+    ----------
+    verbose : bool, optional
+        Forwarded to :func:`init_db`.
+
+    Returns
+    -------
+    Path
+        Filesystem path of the SQLite database file.
+    """
+    return init_db(verbose=verbose)
 
 
 def execute(sql: str, params: Sequence[Any] | dict[str, Any] = ()) -> sqlite3.Cursor:
@@ -205,7 +229,12 @@ def reset_db() -> None:
     Destructive by design.
     """
     conn = _connect()
+    # Children before parents (foreign keys). v3 tables first.
     tables = [
+        "webhook_events",
+        "recovery_events",
+        "recovery_cases",
+        "merchants",
         "autopsy_reports",
         "recoveries",
         "failures",

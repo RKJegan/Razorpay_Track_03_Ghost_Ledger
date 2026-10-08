@@ -32,6 +32,10 @@ COMPONENTS = (
     "razorpay_client",
     "autopsy_reporter",
     "pipeline",
+    # v3 components
+    "webhook",
+    "recovery_store",
+    "merchants",
 )
 
 

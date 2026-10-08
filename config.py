@@ -119,6 +119,27 @@ POLICY_MAX_ATTEMPTS_PER_FAILURE: int = _env_int("POLICY_MAX_ATTEMPTS_PER_FAILURE
 POLICY_STOP_ON_FAILED_ATTEMPT: int = _env_int("POLICY_STOP_ON_FAILED_ATTEMPT", 3)
 
 # --------------------------------------------------------------------------
+# Ghost Ledger v3 — real-time platform (single project, single database)
+# --------------------------------------------------------------------------
+# Master switch for the cause-specific strategy engine (Track B). When 0 the
+# system runs the original one-action-per-cause v2 behaviour. Rollback-safe.
+ENABLE_ADVANCED_STRATEGIES: bool = _env_bool("ENABLE_ADVANCED_STRATEGIES", False)
+
+# Shared secret configured on the Razorpay dashboard for the webhook. It is
+# NOT the key secret. Never printed or logged. Empty = webhooks refused (503).
+RAZORPAY_WEBHOOK_SECRET: str = _env_str("RAZORPAY_WEBHOOK_SECRET", "")
+
+# Hard cap on merchants stored in the database (enforced by a SQL trigger too).
+MERCHANT_MAX_COUNT: int = 10
+
+# Largest webhook body accepted, in bytes. Larger bodies are rejected with 413.
+WEBHOOK_MAX_BODY_BYTES: int = _env_int("WEBHOOK_MAX_BODY_BYTES", 1_000_000)
+
+# Recovery payments above this amount need a human approval (Track A3).
+# Reuses the policy ceiling so there is exactly one number for the rule.
+APPROVAL_THRESHOLD_INR: float = POLICY_MAX_AUTO_APPROVE_INR
+
+# --------------------------------------------------------------------------
 # Dataset shape (FR-001)
 # --------------------------------------------------------------------------
 # Generation is sized by PRESET so that "a large training corpus" and "a fast

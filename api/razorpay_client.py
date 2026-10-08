@@ -177,6 +177,7 @@ class SimulatedRazorpayClient:
         description: str,
         customer: dict[str, Any],
         notes: dict[str, Any] | None = None,
+        reference_id: str | None = None,
     ) -> RazorpayResponse:
         """
         Create a recovery Payment Link.
@@ -219,6 +220,7 @@ class SimulatedRazorpayClient:
             "customer": customer,
             "notify": {"sms": True, "email": True},
             "notes": notes or {},
+            "reference_id": reference_id,
             "status": "paid" if paid else "created",
             "short_url": f"https://rzp.io/i/{uuid.uuid4().hex[:8]}",
             "created_at": created,
@@ -388,10 +390,11 @@ class LiveRazorpayClient:
         description: str,
         customer: dict[str, Any],
         notes: dict[str, Any] | None = None,
+        reference_id: str | None = None,
     ) -> RazorpayResponse:
         """Create a test-mode Payment Link, degrading to simulation on error."""
         self.call_count += 1
-        payload = {
+        payload: dict[str, Any] = {
             "amount": int(round(amount_inr * 100)),
             "currency": "INR",
             "description": description,
@@ -399,6 +402,10 @@ class LiveRazorpayClient:
             "notify": {"sms": True, "email": True},
             "notes": notes or {},
         }
+        if reference_id:
+            # Razorpay rejects a second link with the same reference_id, so a
+            # retried call cannot create a duplicate link (NFR2).
+            payload["reference_id"] = reference_id
         try:
             t0 = time.time()
             data = self.client.payment_link.create(payload)
@@ -409,6 +416,7 @@ class LiveRazorpayClient:
             return self._degrade(
                 "create_payment_link", exc, amount_inr=amount_inr,
                 description=description, customer=customer, notes=notes,
+                reference_id=reference_id,
             )
 
     def fetch_payment_link(self, link_id: str) -> RazorpayResponse:

@@ -287,9 +287,7 @@ def process_webhook_event(event_id: str) -> str:
                 )
                 return "anomaly"
 
-        if parsed.payment_id and recovery_store.has_event_for_payment(
-            recovery_id, stage, parsed.payment_id
-        ):
+        if parsed.payment_id and recovery_store.has_payment_recorded(recovery_id, parsed.payment_id):
             # A different delivery id for a payment already recorded.
             _mark(event_id, "processed")
             audit_trail.log(
@@ -309,6 +307,34 @@ def process_webhook_event(event_id: str) -> str:
             "payment_status": parsed.payment_status,
             "txn_id": parsed.txn_id,
         }
+        if stage == "payment_captured" and case.get("status") == "settled":
+            if recovery_store.has_provisional_settlement(recovery_id):
+                # A status poll saw the link paid; this webhook confirms it with the payment id.
+                recovery_store.append_event(
+                    recovery_id, "settlement_confirmed", detail=detail, created_by="razorpay_webhook",
+                )
+                _mark(event_id, "processed")
+                audit_trail.log(
+                    component="webhook",
+                    action="settlement_confirmed",
+                    input_data=detail,
+                    output_data={"recovery_id": recovery_id},
+                    decision_reason="webhook confirmed a provisional settlement seen by status poll",
+                    success=True,
+                    entity_id=recovery_id,
+                )
+                return "processed"
+            _mark(event_id, "anomaly")
+            audit_trail.log(
+                component="webhook",
+                action="anomaly_second_payment_for_settled_recovery",
+                input_data=detail,
+                decision_reason="a different payment arrived for a recovery that already settled; "
+                                "not counted, flagged for an operator",
+                success=False,
+                entity_id=recovery_id,
+            )
+            return "anomaly"
         recovery_store.append_event(recovery_id, stage, detail=detail, created_by="razorpay_webhook")
         _mark(event_id, "processed")
         audit_trail.log(

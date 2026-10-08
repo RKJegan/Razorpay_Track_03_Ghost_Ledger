@@ -24,8 +24,10 @@ from __future__ import annotations
 import argparse
 import logging
 from datetime import datetime
+from typing import Callable, Union
 
 from sqlalchemy import text
+from sqlalchemy.engine import Connection
 
 from config import MERCHANT_MAX_COUNT
 from database.engine import get_engine
@@ -33,8 +35,26 @@ from database.models import Base
 
 logger = logging.getLogger(__name__)
 
-# (version, name, statements). Statements must be idempotent.
-MIGRATIONS: list[tuple[int, str, list[str]]] = [
+def _add_column_if_missing(conn: Connection, table: str, column: str, ddl_type: str) -> bool:
+    """
+    Add ``column`` to ``table`` only if it is not already there.
+
+    SQLite has no ``ADD COLUMN IF NOT EXISTS``, so the table is inspected first.
+    Returns True if the column was added, False if it already existed.
+    """
+    existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+    if column in existing:
+        return False
+    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}")
+    logger.info("added column %s.%s", table, column)
+    return True
+
+
+# A step is either a SQL string, or a callable(conn) for guarded changes.
+Step = Union[str, Callable[[Connection], object]]
+
+# (version, name, steps). Steps must be idempotent.
+MIGRATIONS: list[tuple[int, str, list[Step]]] = [
     (
         1,
         "v3_core_tables",
@@ -70,6 +90,17 @@ MIGRATIONS: list[tuple[int, str, list[str]]] = [
                 SELECT RAISE(ABORT, 'recovery_events is append-only');
             END
             """,
+        ],
+    ),
+    (
+        3,
+        "v3_approvals_jobs_customer",
+        [
+            # The new tables (approvals, job_state, batch_runs) are created by
+            # Base.metadata.create_all in run_migrations(). This entry records them.
+            # recovery_cases.customer_id is missing from EXISTING databases, so add it
+            # with a guarded ALTER (create_all never alters an existing table).
+            lambda conn: _add_column_if_missing(conn, "recovery_cases", "customer_id", "TEXT"),
         ],
     ),
 ]
@@ -113,8 +144,11 @@ def run_migrations() -> int:
         for version, name, statements in MIGRATIONS:
             if version in applied:
                 continue
-            for statement in statements:
-                conn.exec_driver_sql(statement)
+            for step in statements:
+                if callable(step):
+                    step(conn)
+                else:
+                    conn.exec_driver_sql(step)
             conn.execute(
                 text(
                     "INSERT INTO schema_migrations (version, name, applied_at) "

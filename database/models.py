@@ -59,6 +59,7 @@ class RecoveryCase(Base):
         String, ForeignKey("merchants.id"), nullable=False
     )
     txn_id: Mapped[str] = mapped_column(String, nullable=False)
+    customer_id: Mapped[str | None] = mapped_column(String, nullable=True)
     failure_id: Mapped[str | None] = mapped_column(String, nullable=True)
     cause: Mapped[str | None] = mapped_column(String, nullable=True)
     amount_inr: Mapped[float] = mapped_column(Float, nullable=False)
@@ -100,3 +101,66 @@ class WebhookEvent(Base):
     recovery_id: Mapped[str | None] = mapped_column(String, nullable=True)
     processed_at: Mapped[str | None] = mapped_column(String, nullable=True)
     payload: Mapped[str | None] = mapped_column(Text, nullable=True)  # raw JSON body
+
+
+APPROVAL_STATUSES: tuple[str, ...] = ("pending", "approved", "rejected")
+
+
+class Approval(Base):
+    """A human decision request for a recovery above the auto-approve ceiling (A3)."""
+
+    __tablename__ = "approvals"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'approved', 'rejected')", name="ck_approval_status"),
+        Index("ix_approvals_status_created", "status", "created_at"),
+        Index("ix_approvals_merchant_status", "merchant_id", "status"),
+    )
+
+    approval_id: Mapped[str] = mapped_column(String, primary_key=True)
+    recovery_id: Mapped[str] = mapped_column(
+        String, ForeignKey("recovery_cases.id"), nullable=False
+    )
+    merchant_id: Mapped[str] = mapped_column(
+        String, ForeignKey("merchants.id"), nullable=False
+    )
+    txn_id: Mapped[str] = mapped_column(String, nullable=False)
+    amount_inr: Mapped[float] = mapped_column(Float, nullable=False)
+    cause: Mapped[str | None] = mapped_column(String, nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    approved_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    decided_at: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class JobState(Base):
+    """Per-job health for the scheduler: failure streak and the next allowed run (A4)."""
+
+    __tablename__ = "job_state"
+
+    job_name: Mapped[str] = mapped_column(String, primary_key=True)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_allowed_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_run_at: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class BatchRun(Base):
+    """Progress of a long-running batch, read live by the progress dashboard (A5)."""
+
+    __tablename__ = "batch_runs"
+    __table_args__ = (Index("ix_batch_status", "status"),)
+
+    batch_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="running")
+    started_at: Mapped[str] = mapped_column(String, nullable=False)
+    updated_at: Mapped[str] = mapped_column(String, nullable=False)
+    finished_at: Mapped[str | None] = mapped_column(String, nullable=True)

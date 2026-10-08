@@ -25,7 +25,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from database.engine import session_scope
 from database.models import RECOVERY_STATUSES, Merchant, RecoveryCase, RecoveryEvent
@@ -45,6 +45,17 @@ STAGES: tuple[str, ...] = (
     "recovery_complete",
     "recovery_failed",
     "stopping_rule_triggered",
+    # A3 approvals and policy outcomes
+    "policy_denied",
+    "approval_requested",
+    "approval_granted",
+    "approval_rejected",
+    # A4 scheduler outcomes
+    "payment_link_expired",
+    "reminder_queued",
+    # A failed API call is an operational event, not the end of the recovery,
+    # so it deliberately does NOT move the case to a terminal status.
+    "link_call_failed",
 )
 
 #: Case status each stage moves the recovery into. Stages not listed keep the
@@ -56,6 +67,7 @@ STAGE_STATUS: dict[str, str] = {
     "recovery_complete": "settled",
     "recovery_failed": "failed",
     "stopping_rule_triggered": "escalated",
+    "approval_rejected": "escalated",
 }
 
 #: Statuses that cannot be left once reached.
@@ -94,6 +106,7 @@ def create_case(
     cause: str | None = None,
     failure_id: str | None = None,
     recovery_id: str | None = None,
+    customer_id: str | None = None,
 ) -> str:
     """
     Open a new recovery case in status ``pending``.
@@ -112,6 +125,8 @@ def create_case(
         Link to the v2 ``failures`` row, when there is one.
     recovery_id : str, optional
         Explicit id. Generated when omitted.
+    customer_id : str, optional
+        Customer who owns the failed payment. Scopes the attempt counts.
 
     Returns
     -------
@@ -135,6 +150,7 @@ def create_case(
                 id=rid,
                 merchant_id=merchant_id,
                 txn_id=txn_id,
+                customer_id=customer_id,
                 failure_id=failure_id,
                 cause=cause,
                 amount_inr=float(amount_inr),
@@ -210,6 +226,37 @@ def append_event(
     return event_id
 
 
+def has_payment_recorded(recovery_id: str, payment_id: str) -> bool:
+    """
+    Return True if this payment is already recorded as a capture or confirmation.
+
+    Covers both the webhook path (``payment_captured``) and the confirmation
+    of a provisional poll settlement (``settlement_confirmed``).
+    """
+    with session_scope() as session:
+        row = session.execute(
+            text(
+                "SELECT 1 FROM recovery_events WHERE recovery_id = :rid "
+                "AND stage IN ('payment_captured', 'settlement_confirmed') "
+                "AND json_extract(detail, '$.payment_id') = :pid LIMIT 1"
+            ),
+            {"rid": recovery_id, "pid": payment_id},
+        ).first()
+    return row is not None
+
+
+def has_provisional_settlement(recovery_id: str) -> bool:
+    """
+    Return True when the latest settlement was seen by a status poll and not yet
+    confirmed by a webhook. A poll is provisional: it knows the link was paid,
+    but not the payment id, so the webhook must still confirm it.
+    """
+    latest = latest_event(recovery_id, ("payment_captured", "settlement_confirmed"))
+    if latest is None or latest["stage"] != "payment_captured":
+        return False
+    return (latest["detail"] or {}).get("source") == "status_poll"
+
+
 def case_exists(recovery_id: str) -> bool:
     """Return True when a recovery with this id exists."""
     with session_scope() as session:
@@ -240,6 +287,7 @@ def _case_to_dict(case: RecoveryCase) -> dict[str, Any]:
         "recovery_id": case.id,
         "merchant_id": case.merchant_id,
         "txn_id": case.txn_id,
+        "customer_id": case.customer_id,
         "failure_id": case.failure_id,
         "cause": case.cause,
         "amount_inr": case.amount_inr,
@@ -333,6 +381,77 @@ def _list_by_status(status: str, merchant_id: str | None) -> list[dict[str, Any]
     stmt = stmt.order_by(RecoveryCase.updated_at.desc(), RecoveryCase.id)
     with session_scope() as session:
         return [_case_to_dict(c) for c in session.scalars(stmt).all()]
+
+
+def count_events(recovery_id: str, stages: tuple[str, ...]) -> int:
+    """Return how many events of the given stages a recovery has (for attempt counting)."""
+    with session_scope() as session:
+        return int(
+            session.scalar(
+                select(func.count())
+                .select_from(RecoveryEvent)
+                .where(RecoveryEvent.recovery_id == recovery_id, RecoveryEvent.stage.in_(stages))
+            )
+            or 0
+        )
+
+
+def latest_event(recovery_id: str, stages: tuple[str, ...]) -> dict[str, Any] | None:
+    """Return the most recent event of the given stages, or None."""
+    with session_scope() as session:
+        row = session.scalars(
+            select(RecoveryEvent)
+            .where(RecoveryEvent.recovery_id == recovery_id, RecoveryEvent.stage.in_(stages))
+            .order_by(RecoveryEvent.id.desc())
+            .limit(1)
+        ).first()
+        if row is None:
+            return None
+        return {
+            "event_id": row.id,
+            "timestamp": row.timestamp,
+            "stage": row.stage,
+            "detail": json.loads(row.detail) if row.detail else None,
+            "created_by": row.created_by,
+        }
+
+
+def list_cases(
+    status: str | None = None,
+    merchant_id: str | None = None,
+    cause: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    """
+    Return one page of cases, filtered, newest first, plus the total match count.
+
+    Parameters
+    ----------
+    status, merchant_id, cause : str, optional
+        Filters. None means no filter.
+    limit, offset : int
+        Pagination window.
+    """
+    conditions = []
+    if status is not None:
+        if status not in RECOVERY_STATUSES:
+            raise ValueError(f"unknown status {status!r}")
+        conditions.append(RecoveryCase.status == status)
+    if merchant_id is not None:
+        conditions.append(RecoveryCase.merchant_id == merchant_id)
+    if cause is not None:
+        conditions.append(RecoveryCase.cause == cause)
+    with session_scope() as session:
+        total = int(session.scalar(select(func.count()).select_from(RecoveryCase).where(*conditions)) or 0)
+        rows = session.scalars(
+            select(RecoveryCase)
+            .where(*conditions)
+            .order_by(RecoveryCase.updated_at.desc(), RecoveryCase.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        return [_case_to_dict(r) for r in rows], total
 
 
 def merchant_exists(merchant_id: str) -> bool:

@@ -139,6 +139,24 @@ WEBHOOK_MAX_BODY_BYTES: int = _env_int("WEBHOOK_MAX_BODY_BYTES", 1_000_000)
 # Reuses the policy ceiling so there is exactly one number for the rule.
 APPROVAL_THRESHOLD_INR: float = POLICY_MAX_AUTO_APPROVE_INR
 
+# Operator key guarding the approval routes. Humans acting on approvals send it
+# in the X-Operator-Key header. Empty = approval routes refuse all requests.
+OPERATOR_API_KEY: str = _env_str("OPERATOR_API_KEY", "")
+
+# Background jobs (A4). Off by default so tests and batch runs never start
+# threads; the run guide turns it on for the live demo.
+SCHEDULER_ENABLED: bool = _env_bool("SCHEDULER_ENABLED", False)
+JOB_SETTLEMENT_POLL_SECONDS: int = _env_int("JOB_SETTLEMENT_POLL_SECONDS", 180)
+JOB_RECONCILE_SECONDS: int = _env_int("JOB_RECONCILE_SECONDS", 300)
+JOB_RETRY_SECONDS: int = _env_int("JOB_RETRY_SECONDS", 600)
+JOB_CLEAN_LINKS_SECONDS: int = _env_int("JOB_CLEAN_LINKS_SECONDS", 900)
+# Exponential backoff after a failed job run: base * 2^(streak-1), capped at max.
+JOB_BACKOFF_BASE_SECONDS: int = _env_int("JOB_BACKOFF_BASE_SECONDS", 30)
+JOB_BACKOFF_MAX_SECONDS: int = _env_int("JOB_BACKOFF_MAX_SECONDS", 1800)
+# Hours after which an unpaid payment link is treated as expired.
+PAYMENT_LINK_EXPIRY_HOURS: int = _env_int("PAYMENT_LINK_EXPIRY_HOURS", 24)
+
+
 # --------------------------------------------------------------------------
 # Dataset shape (FR-001)
 # --------------------------------------------------------------------------

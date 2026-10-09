@@ -70,12 +70,15 @@ Headline figures on the sample dataset (`train` profile, 102,262 ledger rows):
 | Held-out transactions | 20,479 |
 | Failures in the holdout | 1,815 |
 | Diagnoser held-out macro-F1 | 0.9704 |
-| Recovery rate | about 72% (72.23% on the rebuilt environment) |
-| Stopping-rule stops | 438 |
-| Audit records | 7,629 (reconciles with the recovery actions) |
+| Recovery rate | **72.10%** (published, committed `reports/headline_metrics.json`) |
+| Stopping-rule stops | **440** (published) |
+| Recovery actions | **3,816** (published) |
+| Audit records | **7,633** (published; reconciles with the recovery actions) |
 
-Exact numbers depend on the environment. The committed `reports/` files are the
-reference.
+A fresh rebuild in the sandbox (Python 3.11, xgboost 3.2.0, not the pinned 3.4.1)
+gave 72.23%, 438 stops, 3,814 actions, and 7,629 audit records. The difference is
+not yet explained. Treat the committed `reports/` files as the reference, and
+re-run on Python 3.12 with the pinned requirements to compare.
 
 ---
 
@@ -115,6 +118,31 @@ the API: settlement poll, reconcile, retry, expired-link cleanup, and (with
 Track B on) dunning. Off by default so tests and batch runs never start threads.
 
 ---
+
+### Real-time transaction and recovery demo
+
+The end-to-end script runs one full recovery: a payment fails, the system
+creates a second payment link, the second payment succeeds, the recovery
+settles, and reconciliation matches the amounts. It also checks that the
+merchant API shows only that merchant's own timeline.
+
+Two modes:
+
+* `--mode offline` (works in any sandbox, no Razorpay account). The script posts correctly signed webhooks to the local API. Run it with the API up and the same `RAZORPAY_WEBHOOK_SECRET`:
+
+  ```bash
+  python scripts/e2e_test_mode.py --mode offline
+  ```
+
+  Expect 15 `[PASS]` lines and `Result: PASS`.
+* `--mode live` (real Razorpay Test Mode, on your machine). The script prints
+  payment links. You pay the first one with a method that fails (for example
+  `failure@razorpay`) and the second with a test card that succeeds. Setup steps
+  are in section 7.
+
+Where to watch it: the **live progress page** (port 8502) shows recoveries as
+they move through their stages. The **merchant page** (`/merchant`) shows the
+merchant's own timeline once a merchant key is entered.
 
 ## 5. HTTP endpoints
 
